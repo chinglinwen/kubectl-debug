@@ -9,6 +9,12 @@
 
 # Overview
 
+
+## Changed to fit haodai needs
+
+- Network disabled
+- Limited permission ( mostly readonly filesystem )
+
 `kubectl-debug` is an out-of-tree solution for [troubleshooting running pods](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/node/troubleshoot-running-pods.md), which allows you to run a new container in running pods for debugging purpose ([examples](/docs/examples.md)). The new container will join the `pid`, `network`, `user` and `ipc` namespaces of the target container, so you can use arbitrary trouble-shooting tools without pre-installing them in your production container image.
 
 - [screenshots](#screenshots)

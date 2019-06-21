@@ -6,13 +6,13 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"time"
 	"path/filepath"
+	"time"
 
-	"github.com/docker/docker/api/types/mount"
 	term "github.com/aylei/kubectl-debug/pkg/util"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/strslice"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -153,7 +153,8 @@ func (m *DebugAttacher) StartContainer(id string) error {
 }
 
 var defaultMountDir = "/container"
-// var defaultMountDir = "/" 
+
+// var defaultMountDir = "/"
 
 func (m *DebugAttacher) CreateContainer(targetId string, image string, command []string) (*container.ContainerCreateCreatedBody, error) {
 
@@ -161,39 +162,42 @@ func (m *DebugAttacher) CreateContainer(targetId string, image string, command [
 	var mounts []mount.Mount
 	// if cli.config.MountDir != "" {
 
-		ctx, cancel := m.getContextWithTimeout()
-		info, err := m.client.ContainerInspect(ctx, targetId)
-		cancel()
-		if err != nil {
-			return nil, err
-		}
-		podworkdir = filepath.Join(defaultMountDir, info.Config.WorkingDir)
+	ctx, cancel := m.getContextWithTimeout()
+	info, err := m.client.ContainerInspect(ctx, targetId)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	podworkdir = filepath.Join(defaultMountDir, info.Config.WorkingDir)
 
-		// attachContainer = info.ID
-		mountDir, ok := info.GraphDriver.Data["MergedDir"]
-		mounts = []mount.Mount{}
-		if ok {
-			mounts = append(mounts, mount.Mount{
-				Type:   "bind",
-				Source: mountDir,
-				Target: defaultMountDir,
-				ReadOnly: true,
-			})
+	// attachContainer = info.ID
+	mountDir, ok := info.GraphDriver.Data["MergedDir"]
+	mounts = []mount.Mount{}
+	if ok {
+		mounts = append(mounts, mount.Mount{
+			Type:   "bind",
+			Source: mountDir,
+			Target: defaultMountDir,
+			// ReadOnly: true, // won't see nfs mount
+			// BindOptions: &mount.BindOptions{   // unknown field error
+			// 	NonRecursive: false,
+			// },
+		})
+	}
+	for _, i := range info.Mounts {
+		var mountType = i.Type
+		if i.Type == "volume" {
+			mountType = "bind"
 		}
-		for _, i := range info.Mounts {
-			var mountType = i.Type
-			if i.Type == "volume" {
-				mountType = "bind"
-			}
-			mounts = append(mounts, mount.Mount{
-				Type:     mountType,
-				Source:   i.Source,
-				Target:   defaultMountDir + i.Destination,
-				// ReadOnly: !i.RW,
-				ReadOnly: true,
-			})
-		}
-	// }
+		mounts = append(mounts, mount.Mount{
+			Type:   mountType,
+			Source: i.Source,
+			// Target:   defaultMountDir+"-extra" + i.Destination,
+			Target: defaultMountDir + i.Destination,
+			// ReadOnly: !i.RW,
+			// ReadOnly: true,
+		})
+	}
 
 	config := &container.Config{
 		Entrypoint: strslice.StrSlice(command),
@@ -202,7 +206,7 @@ func (m *DebugAttacher) CreateContainer(targetId string, image string, command [
 		OpenStdin:  true,
 		StdinOnce:  true,
 		WorkingDir: podworkdir,
-		// User: "65534",
+		// User:            "65534",
 		NetworkDisabled: true,
 	}
 	hostConfig := &container.HostConfig{
@@ -211,7 +215,7 @@ func (m *DebugAttacher) CreateContainer(targetId string, image string, command [
 		IpcMode:    container.IpcMode(m.containerMode(targetId)),
 		PidMode:    container.PidMode(m.containerMode(targetId)),
 		CapAdd:     strslice.StrSlice([]string{"SYS_PTRACE", "SYS_ADMIN"}),
-		Mounts:      mounts,  // added by wen
+		Mounts:     mounts, // added by wen
 	}
 	ctx, cancel = m.getContextWithTimeout()
 	defer cancel()

@@ -63,7 +63,7 @@ Run a container in a running pod, this container will join the namespaces of an 
 You may set default configuration such as image and command in the config file, which locates in "~/.kube/debug-config" by default.
 `
 	// defaultImage          = "nicolaka/netshoot:latest"
-	defaultImage          = "harbor.haodai.net/ops/netshoot:v1"
+	defaultImage          = "harbor.haodai.net/ops/netshoot:v2"
 	defaultAgentPort      = 10027
 	defaultConfigLocation = "/.kube/debug-config"
 	defaultDaemonSetName  = "debug-agent"
@@ -71,7 +71,8 @@ You may set default configuration such as image and command in the config file, 
 
 	usageError = "expects 'debug POD_NAME' for debug command"
 
-	defaultAgentImage         = "aylei/debug-agent:latest"
+	// defaultAgentImage         = "aylei/debug-agent:latest"
+	defaultAgentImage         = "harbor.haodai.net/ops/debug-agent:v1"
 	defaultAgentPodNamePrefix = "debug-agent-pod"
 	defaultAgentPodNamespace  = "default"
 )

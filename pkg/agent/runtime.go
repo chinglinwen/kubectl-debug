@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -70,6 +71,14 @@ func (m *RuntimeManager) GetAttacher(image string, command []string, context con
 	}
 }
 
+type MyWriteCloser struct {
+	*bytes.Buffer
+}
+
+func (mwc *MyWriteCloser) Close() error {
+	return nil
+}
+
 // DebugContainer executes the main debug flow
 func (m *DebugAttacher) DebugContainer(container, image string, command []string, stdin io.Reader, stdout, stderr io.WriteCloser, tty bool, resize <-chan remotecommand.TerminalSize) error {
 
@@ -101,10 +110,14 @@ func (m *DebugAttacher) DebugContainer(container, image string, command []string
 	//	}
 	//} ()
 
+	b := &MyWriteCloser{&bytes.Buffer{}}
+
 	// step 1: pull image
-	stdout.Write([]byte(fmt.Sprintf("pulling image %s... \n\r", image)))
-	err := m.PullImage(image, stdout)
+	// stdout.Write([]byte(fmt.Sprintf("pulling image %s... \n\r", image)))
+	// err := m.PullImage(image, stdout)
+	err := m.PullImage(image, b)
 	if err != nil {
+		stdout.Write([]byte("pull err: " + b.String()))
 		return err
 	}
 
@@ -117,7 +130,7 @@ func (m *DebugAttacher) DebugContainer(container, image string, command []string
 	defer m.CleanContainer(id)
 
 	// step 3: attach tty
-	stdout.Write([]byte("container created, tty ready, press ENTER key to continue...\n\r"))
+	stdout.Write([]byte("\npress ENTER key to continue...\n\r"))
 
 	// from now on, should pipe stdin to the container and no long read stdin
 	// close(m.stopListenEOF)

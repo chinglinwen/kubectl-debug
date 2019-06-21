@@ -32,10 +32,11 @@ func MountBindReadOnly(src, dst string) (out []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command("mount", "--rbind", "-o", "ro", src, dst)
+	cmd := exec.Command("mount", "--bind", "-o", "ro", src, dst)
 	return cmd.CombinedOutput()
 }
 
+// rbind readonly not working for submount
 func MountRBind(src, dst string) (out []byte, err error) {
 	err = pathCheck(src, dst)
 	if err != nil {

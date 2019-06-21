@@ -19,6 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal("get mounts info err")
 	}
+
 	// infos, err := mount.GetMounts()
 	// if err != nil {
 	// 	log.Fatal("get mounts info err")
@@ -56,12 +57,13 @@ func main() {
 
 	for _, v := range mounts {
 		t := strings.Replace(v, root, dst, -1)
+		// fmt.Println("start mount ", v, t)
 		_, err = MountBindReadOnly(v, t)
 		if err != nil {
 			log.Fatalf("mount %v to %v err: %v\n", v, t, err)
 		}
-
 	}
+	// }
 
 	// _, err = ReMount("/newroot", dst)
 	// if err != nil {
@@ -87,9 +89,9 @@ func main() {
 	// cmd.Dir = c.WorkDir
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags:   syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
-		Unshareflags: syscall.CLONE_NEWNS,
-		// Credential: &syscall.Credential{Uid: 65534, Gid: 65534},
+		// Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
+		// Unshareflags: syscall.CLONE_NEWNS,
+		Credential: &syscall.Credential{Uid: 7373, Gid: 7373},
 	}
 
 	//chroot

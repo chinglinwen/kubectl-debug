@@ -8,3 +8,5 @@ vendor/
 /kubectl-debug
 dist/
 /cmd/gobash/gobash
+/cmd/agent/agent
+/cmd/plugin/kubectl-debug

@@ -62,7 +62,8 @@ Run a container in a running pod, this container will join the namespaces of an 
 
 You may set default configuration such as image and command in the config file, which locates in "~/.kube/debug-config" by default.
 `
-	defaultImage          = "nicolaka/netshoot:latest"
+	// defaultImage          = "nicolaka/netshoot:latest"
+	defaultImage          = "harbor.haodai.net/ops/netshoot:v1"
 	defaultAgentPort      = 10027
 	defaultConfigLocation = "/.kube/debug-config"
 	defaultDaemonSetName  = "debug-agent"
@@ -441,6 +442,7 @@ func (o *DebugOptions) Run() error {
 			return err
 		}
 		params.Add("command", string(bytes))
+		// fmt.Printf("params: %#v\n", params)
 		uri.RawQuery = params.Encode()
 		return o.remoteExecute("POST", uri, o.Config, o.In, o.Out, o.ErrOut, t.Raw, sizeQueue)
 	}

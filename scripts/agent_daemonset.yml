@@ -1,3 +1,20 @@
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: debug-agent
+  # namespace: yunwei
+spec:
+  ports:
+  - name: web
+    targetPort: 10027
+    nodePort: 10027
+    port: 80
+  selector:
+    app: debug-agent
+  type: NodePort
+  sessionAffinity: ClientIP
+---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
@@ -13,8 +30,11 @@ spec:
       labels:
         app: debug-agent
     spec:
+      # nodeSelector:
+      #   kubernetes.io/hostname: 172.31.81.118
       containers:
-      - image: aylei/debug-agent:0.0.1
+      # - image: aylei/debug-agent:0.0.1
+      - image: harbor.haodai.net/ops/debug-agent:v1
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3
@@ -29,7 +49,7 @@ spec:
         name: debug-agent
         ports:
         - containerPort: 10027
-          hostPort: 10027
+          # hostPort: 10027
           name: http
           protocol: TCP
         volumeMounts:

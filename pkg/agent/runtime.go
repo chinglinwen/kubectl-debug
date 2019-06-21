@@ -3,20 +3,23 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/aylei/kubectl-debug/pkg/util"
+	"io"
+	"io/ioutil"
+	"log"
+	"time"
+	"path/filepath"
+
+	"github.com/docker/docker/api/types/mount"
+	term "github.com/aylei/kubectl-debug/pkg/util"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"io"
-	"io/ioutil"
 	kubetype "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/kubelet/dockershim/libdocker"
 	kubeletremote "k8s.io/kubernetes/pkg/kubelet/server/remotecommand"
-	"log"
-	"time"
 )
 
 // RuntimeManager is responsible for docker operation
@@ -106,7 +109,7 @@ func (m *DebugAttacher) DebugContainer(container, image string, command []string
 	}
 
 	// step 2: run debug container (join the namespaces of target container)
-	stdout.Write([]byte("starting debug container...\n\r"))
+	// stdout.Write([]byte("starting debug container...\n\r"))
 	id, err := m.RunDebugContainer(container, image, command)
 	if err != nil {
 		return err
@@ -114,7 +117,7 @@ func (m *DebugAttacher) DebugContainer(container, image string, command []string
 	defer m.CleanContainer(id)
 
 	// step 3: attach tty
-	stdout.Write([]byte("container created, open tty...\n\r"))
+	stdout.Write([]byte("container created, tty ready, press ENTER key to continue...\n\r"))
 
 	// from now on, should pipe stdin to the container and no long read stdin
 	// close(m.stopListenEOF)
@@ -149,7 +152,48 @@ func (m *DebugAttacher) StartContainer(id string) error {
 	return nil
 }
 
+var defaultMountDir = "/container"
+// var defaultMountDir = "/" 
+
 func (m *DebugAttacher) CreateContainer(targetId string, image string, command []string) (*container.ContainerCreateCreatedBody, error) {
+
+	var podworkdir string
+	var mounts []mount.Mount
+	// if cli.config.MountDir != "" {
+
+		ctx, cancel := m.getContextWithTimeout()
+		info, err := m.client.ContainerInspect(ctx, targetId)
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+		podworkdir = filepath.Join(defaultMountDir, info.Config.WorkingDir)
+
+		// attachContainer = info.ID
+		mountDir, ok := info.GraphDriver.Data["MergedDir"]
+		mounts = []mount.Mount{}
+		if ok {
+			mounts = append(mounts, mount.Mount{
+				Type:   "bind",
+				Source: mountDir,
+				Target: defaultMountDir,
+				ReadOnly: true,
+			})
+		}
+		for _, i := range info.Mounts {
+			var mountType = i.Type
+			if i.Type == "volume" {
+				mountType = "bind"
+			}
+			mounts = append(mounts, mount.Mount{
+				Type:     mountType,
+				Source:   i.Source,
+				Target:   defaultMountDir + i.Destination,
+				// ReadOnly: !i.RW,
+				ReadOnly: true,
+			})
+		}
+	// }
 
 	config := &container.Config{
 		Entrypoint: strslice.StrSlice(command),
@@ -157,15 +201,19 @@ func (m *DebugAttacher) CreateContainer(targetId string, image string, command [
 		Tty:        true,
 		OpenStdin:  true,
 		StdinOnce:  true,
+		WorkingDir: podworkdir,
+		// User: "65534",
+		NetworkDisabled: true,
 	}
 	hostConfig := &container.HostConfig{
-		NetworkMode: container.NetworkMode(m.containerMode(targetId)),
-		UsernsMode:  container.UsernsMode(m.containerMode(targetId)),
-		IpcMode:     container.IpcMode(m.containerMode(targetId)),
-		PidMode:     container.PidMode(m.containerMode(targetId)),
-		CapAdd:      strslice.StrSlice([]string{"SYS_PTRACE", "SYS_ADMIN"}),
+		// NetworkMode: container.NetworkMode(m.containerMode(targetId)),
+		UsernsMode: container.UsernsMode(m.containerMode(targetId)),
+		IpcMode:    container.IpcMode(m.containerMode(targetId)),
+		PidMode:    container.PidMode(m.containerMode(targetId)),
+		CapAdd:     strslice.StrSlice([]string{"SYS_PTRACE", "SYS_ADMIN"}),
+		Mounts:      mounts,  // added by wen
 	}
-	ctx, cancel := m.getContextWithTimeout()
+	ctx, cancel = m.getContextWithTimeout()
 	defer cancel()
 	body, err := m.client.ContainerCreate(ctx, config, hostConfig, nil, "")
 	if err != nil {
@@ -249,6 +297,8 @@ func (m *DebugAttacher) AttachToContainer(container string, stdin io.Reader, std
 		return err
 	}
 	defer resp.Close()
+
+	// fmt.Fprintf(os.Stdin,"ls\n")
 
 	return m.holdHijackedConnection(sopts.RawTerminal, sopts.InputStream, sopts.OutputStream, sopts.ErrorStream, resp)
 }

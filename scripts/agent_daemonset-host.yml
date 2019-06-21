@@ -1,0 +1,67 @@
+# # Service
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: debug-agent
+#   # namespace: yunwei
+# spec:
+#   ports:
+#   - name: web
+#     targetPort: 10027
+#     nodePort: 10027
+#     port: 80
+#   selector:
+#     app: debug-agent
+#   type: NodePort
+#   sessionAffinity: ClientIP
+# ---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: debug-agent
+  name: debug-agent
+  namespace: yunwei
+spec:
+  selector:
+    matchLabels:
+      app: debug-agent
+  template:
+    metadata:
+      labels:
+        app: debug-agent
+    spec:
+      # nodeSelector:
+      #   kubernetes.io/hostname: 172.31.81.117
+      containers:
+      # - image: aylei/debug-agent:0.0.1
+      - image: harbor.haodai.net/ops/debug-agent:v1
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 10027
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: debug-agent
+        ports:
+        - containerPort: 10027
+          hostPort: 10027
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: docker
+          mountPath: "/var/run/docker.sock"
+      hostNetwork: true
+      volumes:
+      - name: docker
+        hostPath:
+          path: /var/run/docker.sock
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 5
+    type: RollingUpdate
